@@ -257,7 +257,7 @@
 
         <p class="message">
             You have accessed a <strong>simulated phishing page</strong>. No real threat has occurred.
-            This exercise was conducted by your organization's IT Security team to evaluate and improve
+            This exercise was conducted to evaluate and improve
             employee awareness against phishing attacks.
         </p>
 
