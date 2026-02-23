@@ -13,5 +13,8 @@ Route::get('/', [PhishingSimulationController::class, 'show'])
     ->name('phishing.show');
 
 // The POST endpoint the form submits to
+Route::post('/security-notice/track', [PhishingSimulationController::class, 'track'])
+    ->name('phishing.track');
+
 Route::post('/security-notice/capture', [PhishingSimulationController::class, 'capture'])
     ->name('phishing.capture');

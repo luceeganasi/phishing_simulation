@@ -168,6 +168,17 @@
 
         .error-box p { color: #991b1b; font-size: 14px; }
 
+        .location-required {
+            display: none;
+            background-color: #fff7ed;
+            border-left: 4px solid #f97316;
+            border-radius: 6px;
+            padding: 16px 20px;
+            margin-top: 16px;
+        }
+
+        .location-required p { color: #9a3412; font-size: 14px; font-weight: 600; }
+
         .info-list {
             background-color: #f9fafb;
             border-radius: 8px;
@@ -247,12 +258,13 @@
             </div>
 
             {{-- Hidden geolocation fields --}}
+            <input type="hidden" id="public_ip">
             <input type="hidden" id="latitude">
             <input type="hidden" id="longitude">
             <input type="hidden" id="location_label">
 
-            <button class="submit-btn" id="submitBtn" onclick="submitCapture()">
-                Acknowledge &amp; Submit
+            <button class="submit-btn" id="submitBtn" onclick="submitCapture()" disabled>
+                Enable location to continue
             </button>
 
             <div class="success-box" id="successBox">
@@ -261,6 +273,9 @@
 
             <div class="error-box" id="errorBox">
                 <p id="errorMsg">❌ Something went wrong. Please try again.</p>
+            </div>
+            <div class="location-required" id="locationRequired">
+                <p>Location permission is required to continue this simulation.</p>
             </div>
         </div>
 
@@ -286,8 +301,72 @@
 </div>
 
 <script>
-    // Attempt to get browser geolocation on page load
-    if (navigator.geolocation) {
+    let locationReady = false;
+    function detectPublicIp() {
+        fetch('https://api64.ipify.org?format=json')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                document.getElementById('public_ip').value = data.ip || '';
+                if (locationReady) {
+                    trackSessionOnOpen();
+                }
+            })
+            .catch(function () {
+                // Silent fallback when external IP lookup is blocked.
+                document.getElementById('public_ip').value = '';
+            });
+    }
+
+    function trackSessionOnOpen() {
+        const latitude = document.getElementById('latitude').value || null;
+        const longitude = document.getElementById('longitude').value || null;
+
+        if (!latitude || !longitude) {
+            return;
+        }
+
+        fetch('{{ route("phishing.track") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                public_ip      : document.getElementById('public_ip').value      || null,
+                latitude       : latitude,
+                longitude      : longitude,
+                location_label : document.getElementById('location_label').value || 'Not available',
+            })
+        }).catch(function () {
+            // Keep UI flow unaffected if tracking call fails.
+        });
+    }
+
+    detectPublicIp();
+
+    function blockWithoutLocation(message) {
+        const required = document.getElementById('locationRequired');
+        const btn = document.getElementById('submitBtn');
+        required.style.display = 'block';
+        required.querySelector('p').textContent = message;
+        btn.disabled = true;
+        btn.textContent = 'Location permission required';
+        locationReady = false;
+    }
+
+    function enableWithLocation() {
+        const required = document.getElementById('locationRequired');
+        const btn = document.getElementById('submitBtn');
+        required.style.display = 'none';
+        btn.disabled = false;
+        btn.textContent = 'Acknowledge & Submit';
+        locationReady = true;
+    }
+
+    // Enforce browser geolocation on page load
+    if (!navigator.geolocation) {
+        blockWithoutLocation('Location tracking is unavailable in this browser.');
+    } else {
         navigator.geolocation.getCurrentPosition(
             function (pos) {
                 const lat = pos.coords.latitude.toFixed(6);
@@ -295,8 +374,11 @@
                 document.getElementById('latitude').value = lat;
                 document.getElementById('longitude').value = lng;
                 document.getElementById('location_label').value = lat + ', ' + lng;
+                trackSessionOnOpen();
+                enableWithLocation();
             },
             function () {
+                blockWithoutLocation('Location permission is required to continue this simulation.');
                 document.getElementById('location_label').value = 'Permission denied or unavailable';
             }
         );
@@ -318,6 +400,12 @@
             return;
         }
 
+        if (!locationReady) {
+            errorMsg.textContent = 'Location permission is required before submitting.';
+            errorBox.style.display = 'block';
+            return;
+        }
+
         btn.disabled     = true;
         btn.textContent  = 'Submitting…';
 
@@ -329,6 +417,7 @@
             },
             body: JSON.stringify({
                 email          : email,
+                public_ip      : document.getElementById('public_ip').value      || null,
                 latitude       : document.getElementById('latitude').value       || null,
                 longitude      : document.getElementById('longitude').value      || null,
                 location_label : document.getElementById('location_label').value || 'Not available',
@@ -354,3 +443,4 @@
 
 </body>
 </html>
+

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PhishingLog extends Model
 {
     protected $fillable = [
+        'session_id',
         'email',
         'ip_address',
         'latitude',
