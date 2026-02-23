@@ -19,7 +19,7 @@ class PhishingSimulationController extends Controller
         $ip = $this->resolvePublicIp($request);
         $geo = $this->getLatitudeLongitude($ip);
 
-        PhishingLog::updateOrCreate([
+        $log = PhishingLog::updateOrCreate([
             'session_id' => $sessionId,
         ], [
             'ip_address' => $ip,
@@ -30,7 +30,9 @@ class PhishingSimulationController extends Controller
             'captured_at' => now(),
         ]);
 
-        return view('phishing-simulation');
+        return view('phishing-simulation', [
+            'alreadyConfirmed' => ! empty($log->email),
+        ]);
     }
 
     /**

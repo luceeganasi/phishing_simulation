@@ -178,6 +178,19 @@
         }
 
         .location-required p { color: #9a3412; font-size: 14px; font-weight: 600; }
+        .already-confirmed {
+            background-color: #ecfdf5;
+            border-left: 4px solid #10b981;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 12px;
+        }
+        .already-confirmed p {
+            color: #065f46;
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.5;
+        }
 
         .info-list {
             background-color: #f9fafb;
@@ -251,6 +264,11 @@
         {{-- Email Capture Form --}}
         <div class="capture-form">
             <h3>Acknowledge &amp; Verify Identity</h3>
+            @if(!empty($alreadyConfirmed))
+                <div class="already-confirmed">
+                    <p>✅ Your acknowledgment has already been recorded. Thank you for participating in this security exercise.</p>
+                </div>
+            @else
 
             <div class="form-group">
                 <label for="email">Your Email Address</label>
@@ -277,6 +295,7 @@
             <div class="location-required" id="locationRequired">
                 <p>Location permission is required to continue this simulation.</p>
             </div>
+            @endif
         </div>
 
         <div class="info-list">
@@ -302,24 +321,39 @@
 
 <script>
     let locationReady = false;
+    const captureEnabled = document.getElementById('submitBtn') !== null;
     function detectPublicIp() {
+        const ipInput = document.getElementById('public_ip');
+        if (!ipInput) {
+            return;
+        }
+
         fetch('https://api64.ipify.org?format=json')
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                document.getElementById('public_ip').value = data.ip || '';
+                ipInput.value = data.ip || '';
                 if (locationReady) {
                     trackSessionOnOpen();
                 }
             })
             .catch(function () {
                 // Silent fallback when external IP lookup is blocked.
-                document.getElementById('public_ip').value = '';
+                ipInput.value = '';
             });
     }
 
     function trackSessionOnOpen() {
-        const latitude = document.getElementById('latitude').value || null;
-        const longitude = document.getElementById('longitude').value || null;
+        const latitudeInput = document.getElementById('latitude');
+        const longitudeInput = document.getElementById('longitude');
+        const labelInput = document.getElementById('location_label');
+        const ipInput = document.getElementById('public_ip');
+
+        if (!latitudeInput || !longitudeInput || !labelInput) {
+            return;
+        }
+
+        const latitude = latitudeInput.value || null;
+        const longitude = longitudeInput.value || null;
 
         if (!latitude || !longitude) {
             return;
@@ -332,10 +366,10 @@
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
             },
             body: JSON.stringify({
-                public_ip      : document.getElementById('public_ip').value      || null,
+                public_ip      : ipInput ? ipInput.value || null : null,
                 latitude       : latitude,
                 longitude      : longitude,
-                location_label : document.getElementById('location_label').value || 'Not available',
+                location_label : labelInput.value || 'Not available',
             })
         }).catch(function () {
             // Keep UI flow unaffected if tracking call fails.
@@ -347,6 +381,9 @@
     function blockWithoutLocation(message) {
         const required = document.getElementById('locationRequired');
         const btn = document.getElementById('submitBtn');
+        if (!required || !btn) {
+            return;
+        }
         required.style.display = 'block';
         required.querySelector('p').textContent = message;
         btn.disabled = true;
@@ -357,6 +394,9 @@
     function enableWithLocation() {
         const required = document.getElementById('locationRequired');
         const btn = document.getElementById('submitBtn');
+        if (!required || !btn) {
+            return;
+        }
         required.style.display = 'none';
         btn.disabled = false;
         btn.textContent = 'Acknowledge & Submit';
@@ -364,7 +404,9 @@
     }
 
     // Enforce browser geolocation on page load
-    if (!navigator.geolocation) {
+    if (!captureEnabled) {
+        // Session is already confirmed; no additional capture needed.
+    } else if (!navigator.geolocation) {
         blockWithoutLocation('Location tracking is unavailable in this browser.');
     } else {
         navigator.geolocation.getCurrentPosition(
