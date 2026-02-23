@@ -310,6 +310,7 @@
 
         <div class="footer-note">
             For questions, contact
+            <!-- Change Mail to proper ICT email address -->
             <a href="mailto:{{ config('mail.security_team', 'ict.mluc@dmmmsu.edu.ph') }}">
                 ICT Team
             </a>
